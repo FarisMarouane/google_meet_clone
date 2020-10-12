@@ -2,28 +2,70 @@ const express = require('express');
 const app = express();
 const server = require('http').Server(app);
 const io = require('socket.io')(server);
-const { v4: uuidV4 } = require('uuid');
+const bodyParser = require('body-parser');
+const { v4: uuidv4 } = require('uuid');
 
-const rooms = [];
+let uniqueRoomName;
+const rooms = {};
+
+app.use(bodyParser.json()); // support json encoded bodies
+app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-  res.redirect(`/${uuidV4()}`);
+  res.render('home');
 });
 
-app.get('/:room', (req, res) => {
-  res.render('room', { roomId: req.params.room });
+app.post('/register_room', (req, res) => {
+  const roomName = req.body.name;
+  uniqueRoomName = `${roomName}${uuidv4()}`;
+  rooms[uniqueRoomName] = [];
+
+  res.redirect(`/${uniqueRoomName}/new_participant`);
 });
 
-// io.on('connection', (socket) => {
-//   console.log('Socket connection');
-//   socket.on('join-room', (roomId, userId) => {
-//     console.log('join-room');
-//     socket.join(roomId);
-//     // socket.to(roomId).broadcast.emit('user-connected', userId);
-//   });
-// });
+app.get('/:roomId/new_participant', (req, res) => {
+  res.render('new_participant');
+});
+
+app.post('/register_participant', (req, res) => {
+  const participantName = req.body.name;
+  res.redirect(`/room/${uniqueRoomName}`);
+});
+
+app.get('/room/:roomId', (req, res) => {
+  res.render('room', { roomId: req.params.roomId });
+});
+
+io.on('connection', (socket) => {
+  socket.on('join-room', (roomId) => {
+    if (rooms[roomId]) {
+      rooms[roomId].push(socket.id);
+    } else {
+      rooms[roomId] = [socket.id];
+    }
+    const otherUser = rooms[roomId].find((id) => id !== socket.id);
+    if (otherUser) {
+      socket.emit('other-user', otherUser);
+      // socket.to(otherUser).emit(socket.id); Ché pas à quoi ça sert...
+    }
+  });
+
+  socket.on('offer', ({ offer, target, caller }) => {
+    console.log('received offer', offer);
+    io.to(target).emit('offer', { caller, offer });
+  });
+
+  socket.on('answer', ({ caller, answer }) => {
+    io.to(caller).emit('answer', answer);
+  });
+
+  socket.on('ice-candidate', (incoming) => {
+    console.log('ice-candidate server', incoming['target']);
+    io.to(incoming.target).emit('ice-candidate', incoming.candidate);
+  });
+});
 
 server.listen(3000);
