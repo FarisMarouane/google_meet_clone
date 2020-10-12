@@ -9,16 +9,14 @@
     const ROOM_ID = '<%= roomId %>';
   </script>
   <script src="/socket.io/socket.io.js" defer></script>
-  <script
-    src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"
-    defer
-  ></script>
-  <script src="script.js" defer></script>
+  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <script src="/script.js" defer></script>
   <style>
     #video-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, 300px);
       grid-auto-rows: 300px;
+      column-gap: 15px;
     }
 
     video {
@@ -29,6 +27,9 @@
   </style>
   <body>
     <h3><%= roomId %></h3>
-    <div id="video-grid"></div>
+    <div id="video-grid">
+      <video id="localVideo" autoplay playsinline></video>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
   </body>
 </html>
