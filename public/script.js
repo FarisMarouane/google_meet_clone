@@ -18,7 +18,7 @@ const serverConfig = {
   ],
 };
 
-let peerConnection = new RTCPeerConnection(serverConfig);
+let peerConnection;
 let localStream;
 navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
   localStream = stream;
@@ -27,13 +27,8 @@ navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
   socket.emit('join-room', ROOM_ID);
 
   socket.on('offer', ({ caller, offer }) => {
-    peerConnection.onnegotiationneeded = () => startNegotiation(caller);
-    peerConnection.onicecandidate = (e) => handleIceCandidate(e, caller);
+    peerConnection = new RTCPeerConnection(serverConfig);
 
-    peerConnection.ontrack = ({ streams }) => {
-      if (remoteVideo.srcObject) return;
-      remoteVideo.srcObject = streams[0];
-    };
     for (const track of localStream.getTracks()) {
       peerConnection.addTrack(track, localStream);
     }
@@ -48,17 +43,22 @@ navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
         return answer;
       })
       .then((answer) => {
-        console.log('Emitted answer', answer);
         socket.emit('answer', {
           caller,
           answer,
         });
       })
       .catch((e) => console.log('Error negotiating offer', e));
+
+    peerConnection.onicecandidate = (e) => handleIceCandidate(e, caller);
+
+    peerConnection.ontrack = ({ streams }) => {
+      if (remoteVideo.srcObject) return;
+      remoteVideo.srcObject = streams[0];
+    };
   });
 
   socket.on('answer', (answer) => {
-    console.log('Answer received:', answer);
     peerConnection
       .setRemoteDescription(answer)
       .catch((e) => console.log('Error handling answer:', e));
@@ -66,7 +66,6 @@ navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
 
   socket.on('ice-candidate', (message) => {
     const candidate = new RTCIceCandidate(message);
-    console.log('Received ICE candidate', candidate.toJSON());
     peerConnection
       .addIceCandidate(candidate.toJSON())
       .catch((e) => console.log('Error adding ICE candidate', e));
@@ -74,7 +73,8 @@ navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
 });
 
 function startCall(otherUserId) {
-  console.log('Starting call');
+  console.log('*** Starting call');
+  peerConnection = new RTCPeerConnection(serverConfig);
   try {
     for (const track of localStream.getTracks()) {
       peerConnection.addTrack(track, localStream);
@@ -116,4 +116,11 @@ function handleIceCandidate(e, otherUserId) {
 socket.on('connect', () => (localSocketId = socket.id));
 socket.on('other-user', (otherUserId) => {
   startCall(otherUserId);
+});
+
+socket.on('user disonnected', ({ userId }) => {
+  console.log(`User ${userId} disconnected`);
+  peerConnection.close();
+  peerConnection = null;
+  remoteVideo.srcObject = null;
 });
