@@ -40,21 +40,22 @@ app.get('/room/:roomId', (req, res) => {
 });
 
 io.on('connection', (socket) => {
+  let room_id;
   socket.on('join-room', (roomId) => {
+    room_id = roomId;
     if (rooms[roomId]) {
       rooms[roomId].push(socket.id);
     } else {
       rooms[roomId] = [socket.id];
     }
-    const otherUser = rooms[roomId].find((id) => id !== socket.id);
+    console.log(`${socket.id} joined`, rooms[roomId]);
+    const otherUser = rooms[roomId]?.find((id) => id !== socket.id);
     if (otherUser) {
       socket.emit('other-user', otherUser);
-      // socket.to(otherUser).emit(socket.id); Ché pas à quoi ça sert...
     }
   });
 
   socket.on('offer', ({ offer, target, caller }) => {
-    console.log('received offer', offer);
     io.to(target).emit('offer', { caller, offer });
   });
 
@@ -62,8 +63,15 @@ io.on('connection', (socket) => {
     io.to(caller).emit('answer', answer);
   });
 
+  socket.on('disconnect', () => {
+    // Remove disconnected user from room
+    if (rooms[room_id]) {
+      rooms[room_id] = rooms[room_id].filter((id) => id !== socket.id);
+    }
+    socket.broadcast.emit('user disonnected', { userId: socket.id });
+  });
+
   socket.on('ice-candidate', (incoming) => {
-    console.log('ice-candidate server', incoming['target']);
     io.to(incoming.target).emit('ice-candidate', incoming.candidate);
   });
 });
