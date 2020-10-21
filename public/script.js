@@ -20,57 +20,59 @@ const serverConfig = {
 
 let peerConnection;
 let localStream;
-navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-  localStream = stream;
-  localVideo.srcObject = stream;
+navigator.mediaDevices
+  .getUserMedia({ video: true, audio: true })
+  .then((stream) => {
+    localStream = stream;
+    localVideo.srcObject = stream;
 
-  socket.emit('join-room', ROOM_ID);
+    socket.emit('join-room', ROOM_ID);
 
-  socket.on('offer', ({ caller, offer }) => {
-    peerConnection = new RTCPeerConnection(serverConfig);
+    socket.on('offer', ({ caller, offer }) => {
+      peerConnection = new RTCPeerConnection(serverConfig);
 
-    for (const track of localStream.getTracks()) {
-      peerConnection.addTrack(track, localStream);
-    }
+      for (const track of localStream.getTracks()) {
+        peerConnection.addTrack(track, localStream);
+      }
 
-    peerConnection
-      .setRemoteDescription(offer)
-      .then(() => {
-        return peerConnection.createAnswer();
-      })
-      .then((answer) => {
-        peerConnection.setLocalDescription(answer);
-        return answer;
-      })
-      .then((answer) => {
-        socket.emit('answer', {
-          caller,
-          answer,
-        });
-      })
-      .catch((e) => console.log('Error negotiating offer', e));
+      peerConnection
+        .setRemoteDescription(offer)
+        .then(() => {
+          return peerConnection.createAnswer();
+        })
+        .then((answer) => {
+          peerConnection.setLocalDescription(answer);
+          return answer;
+        })
+        .then((answer) => {
+          socket.emit('answer', {
+            caller,
+            answer,
+          });
+        })
+        .catch((e) => console.log('Error negotiating offer', e));
 
-    peerConnection.onicecandidate = (e) => handleIceCandidate(e, caller);
+      peerConnection.onicecandidate = (e) => handleIceCandidate(e, caller);
 
-    peerConnection.ontrack = ({ streams }) => {
-      if (remoteVideo.srcObject) return;
-      remoteVideo.srcObject = streams[0];
-    };
+      peerConnection.ontrack = ({ streams }) => {
+        if (remoteVideo.srcObject) return;
+        remoteVideo.srcObject = streams[0];
+      };
+    });
+
+    socket.on('answer', (answer) => {
+      peerConnection
+        .setRemoteDescription(answer)
+        .catch((e) => console.log('Error handling answer:', e));
+    });
+
+    socket.on('ice-candidate', (message) => {
+      const candidate = new RTCIceCandidate(message);
+      peerConnection
+        .addIceCandidate(candidate.toJSON())
+        .catch((e) => console.log('Error adding ICE candidate', e));
+    });
   });
-
-  socket.on('answer', (answer) => {
-    peerConnection
-      .setRemoteDescription(answer)
-      .catch((e) => console.log('Error handling answer:', e));
-  });
-
-  socket.on('ice-candidate', (message) => {
-    const candidate = new RTCIceCandidate(message);
-    peerConnection
-      .addIceCandidate(candidate.toJSON())
-      .catch((e) => console.log('Error adding ICE candidate', e));
-  });
-});
 
 function startCall(otherUserId) {
   console.log('*** Starting call');
