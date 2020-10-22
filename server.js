@@ -49,18 +49,18 @@ io.on('connection', (socket) => {
       rooms[roomId] = [socket.id];
     }
     console.log(`${socket.id} joined`, rooms[roomId]);
-    const otherUser = rooms[roomId]?.find((id) => id !== socket.id);
-    if (otherUser) {
-      socket.emit('other-user', otherUser);
+    const otherUsers = rooms[roomId]?.filter((id) => id !== socket.id);
+    if (otherUsers?.length > 0) {
+      socket.emit('other-users', otherUsers);
     }
   });
 
   socket.on('offer', ({ offer, target, caller }) => {
-    io.to(target).emit('offer', { caller, offer });
+    io.to(target).emit('offer', { caller, offer, target });
   });
 
-  socket.on('answer', ({ caller, answer }) => {
-    io.to(caller).emit('answer', answer);
+  socket.on('answer', ({ caller, answer, target }) => {
+    io.to(caller).emit('answer', { answer, target });
   });
 
   socket.on('disconnect', () => {
@@ -71,8 +71,12 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('user disonnected', { userId: socket.id });
   });
 
-  socket.on('ice-candidate', (incoming) => {
-    io.to(incoming.target).emit('ice-candidate', incoming.candidate);
+  socket.on('ice-candidate', ({ target, caller, candidate }) => {
+    io.to(target).emit('ice-candidate', {
+      target,
+      caller,
+      candidateMessage: candidate,
+    });
   });
 });
 

@@ -18,7 +18,7 @@ const serverConfig = {
   ],
 };
 
-let peerConnection;
+let peerConnections = {};
 let localStream;
 navigator.mediaDevices
   .getUserMedia({ video: true, audio: true })
@@ -28,63 +28,71 @@ navigator.mediaDevices
 
     socket.emit('join-room', ROOM_ID);
 
-    socket.on('offer', ({ caller, offer }) => {
-      peerConnection = new RTCPeerConnection(serverConfig);
+    socket.on('offer', ({ caller, offer, target }) => {
+      peerConnections[caller] = new RTCPeerConnection(serverConfig);
 
       for (const track of localStream.getTracks()) {
-        peerConnection.addTrack(track, localStream);
+        peerConnections[caller].addTrack(track, localStream);
       }
 
-      peerConnection
+      peerConnections[caller]
         .setRemoteDescription(offer)
         .then(() => {
-          return peerConnection.createAnswer();
+          return peerConnections[caller].createAnswer();
         })
         .then((answer) => {
-          peerConnection.setLocalDescription(answer);
+          peerConnections[caller].setLocalDescription(answer);
           return answer;
         })
         .then((answer) => {
           socket.emit('answer', {
+            target, // Target is local user in this case
             caller,
             answer,
           });
         })
         .catch((e) => console.log('Error negotiating offer', e));
 
-      peerConnection.onicecandidate = (e) => handleIceCandidate(e, caller);
+      peerConnections[caller].onicecandidate = (e) =>
+        handleIceCandidate(e, caller, target);
 
-      peerConnection.ontrack = ({ streams }) => {
+      peerConnections[caller].ontrack = ({ streams }) => {
         if (remoteVideo.srcObject) return;
         remoteVideo.srcObject = streams[0];
       };
     });
 
-    socket.on('answer', (answer) => {
-      peerConnection
+    socket.on('answer', ({ answer, target }) => {
+      peerConnections[target]
         .setRemoteDescription(answer)
         .catch((e) => console.log('Error handling answer:', e));
     });
 
-    socket.on('ice-candidate', (message) => {
-      const candidate = new RTCIceCandidate(message);
-      peerConnection
+    socket.on('ice-candidate', ({ target, caller, candidateMessage }) => {
+      // Target is local user in this case
+      console.log('On ice-candidate/Target:', target);
+      console.log('On ice-candidate/Caller:', caller);
+      console.log('On ice-candidate/peers', peerConnections);
+      const candidate = new RTCIceCandidate(candidateMessage);
+      peerConnections[caller]
         .addIceCandidate(candidate.toJSON())
         .catch((e) => console.log('Error adding ICE candidate', e));
     });
   });
 
-function startCall(otherUserId) {
-  console.log('*** Starting call');
-  peerConnection = new RTCPeerConnection(serverConfig);
+function startCall(target) {
+  console.log('*** Starting call to user:', target);
+  peerConnections[target] = new RTCPeerConnection(serverConfig);
   try {
     for (const track of localStream.getTracks()) {
-      peerConnection.addTrack(track, localStream);
+      peerConnections[target].addTrack(track, localStream);
     }
 
-    peerConnection.onnegotiationneeded = () => startNegotiation(otherUserId);
-    peerConnection.onicecandidate = (e) => handleIceCandidate(e, otherUserId);
-    peerConnection.ontrack = ({ streams }) => {
+    peerConnections[target].onnegotiationneeded = () =>
+      startNegotiation(target);
+    peerConnections[target].onicecandidate = (e) =>
+      handleIceCandidate(e, target, localSocketId);
+    peerConnections[target].ontrack = ({ streams }) => {
       if (remoteVideo.srcObject) return;
       remoteVideo.srcObject = streams[0];
     };
@@ -93,36 +101,38 @@ function startCall(otherUserId) {
   }
 }
 
-function startNegotiation(otherUserId) {
-  peerConnection
+function startNegotiation(target) {
+  peerConnections[target]
     .createOffer()
-    .then((offer) => peerConnection.setLocalDescription(offer))
+    .then((offer) => peerConnections[target].setLocalDescription(offer))
     .then(() => {
       socket.emit('offer', {
-        target: otherUserId,
+        target,
         caller: localSocketId,
-        offer: peerConnection.localDescription,
+        offer: peerConnections[target].localDescription,
       });
     });
 }
 
-function handleIceCandidate(e, otherUserId) {
+function handleIceCandidate(e, target, caller) {
+  console.log('Emitting ice-candidate/caller', caller);
   if (e.candidate) {
     socket.emit('ice-candidate', {
-      target: otherUserId,
+      target,
+      caller,
       candidate: e.candidate,
     });
   }
 }
 
 socket.on('connect', () => (localSocketId = socket.id));
-socket.on('other-user', (otherUserId) => {
-  startCall(otherUserId);
+socket.on('other-users', (otherUsers) => {
+  for (const target of otherUsers) startCall(target);
 });
 
 socket.on('user disonnected', ({ userId }) => {
   console.log(`User ${userId} disconnected`);
-  peerConnection.close();
-  peerConnection = null;
+  peerConnections[userId].close();
+  delete peerConnections[userId];
   remoteVideo.srcObject = null;
 });
