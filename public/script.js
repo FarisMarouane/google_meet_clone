@@ -1,8 +1,17 @@
 const socket = io('/');
 
-const localVideo = document.getElementById('localVideo');
-const remoteVideo = document.getElementById('remoteVideo');
+function createVideoElement() {
+  const remoteVideoElement = document.createElement('video');
+  remoteVideoElement.setAttribute('autoplay', '');
+  remoteVideoElement.setAttribute('playsinline', '');
 
+  return remoteVideoElement;
+}
+
+const localVideoElement = document.getElementById('localVideo');
+const videoGridElement = document.getElementById('video-grid');
+
+let remoteVideos = {};
 let localSocketId;
 
 const serverConfig = {
@@ -24,12 +33,14 @@ navigator.mediaDevices
   .getUserMedia({ video: true, audio: true })
   .then((stream) => {
     localStream = stream;
-    localVideo.srcObject = stream;
+    localVideoElement.srcObject = stream;
 
     socket.emit('join-room', ROOM_ID);
 
     socket.on('offer', ({ caller, offer, target }) => {
       peerConnections[caller] = new RTCPeerConnection(serverConfig);
+      remoteVideos[caller] = createVideoElement();
+      videoGridElement.appendChild(remoteVideos[caller]);
 
       for (const track of localStream.getTracks()) {
         peerConnections[caller].addTrack(track, localStream);
@@ -57,8 +68,8 @@ navigator.mediaDevices
         handleIceCandidate(e, caller, target);
 
       peerConnections[caller].ontrack = ({ streams }) => {
-        if (remoteVideo.srcObject) return;
-        remoteVideo.srcObject = streams[0];
+        if (remoteVideos[caller].srcObject) return;
+        remoteVideos[caller].srcObject = streams[0];
       };
     });
 
@@ -83,6 +94,8 @@ navigator.mediaDevices
 function startCall(target) {
   console.log('*** Starting call to user:', target);
   peerConnections[target] = new RTCPeerConnection(serverConfig);
+  remoteVideos[target] = createVideoElement();
+  videoGridElement.appendChild(remoteVideos[target]);
   try {
     for (const track of localStream.getTracks()) {
       peerConnections[target].addTrack(track, localStream);
@@ -93,8 +106,8 @@ function startCall(target) {
     peerConnections[target].onicecandidate = (e) =>
       handleIceCandidate(e, target, localSocketId);
     peerConnections[target].ontrack = ({ streams }) => {
-      if (remoteVideo.srcObject) return;
-      remoteVideo.srcObject = streams[0];
+      if (remoteVideos[target].srcObject) return;
+      remoteVideos[target].srcObject = streams[0];
     };
   } catch (err) {
     console.log('Error starting connection:', err);
@@ -134,5 +147,5 @@ socket.on('user disonnected', ({ userId }) => {
   console.log(`User ${userId} disconnected`);
   peerConnections[userId].close();
   delete peerConnections[userId];
-  remoteVideo.srcObject = null;
+  remoteVideos[userId].srcObject = null;
 });
