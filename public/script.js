@@ -62,7 +62,7 @@ navigator.mediaDevices
             answer,
           });
         })
-        .catch((e) => console.log('Error negotiating offer', e));
+        .catch((e) => console.log('*** Error negotiating offer', e));
 
       peerConnections[caller].onicecandidate = (e) =>
         handleIceCandidate(e, caller, target);
@@ -76,18 +76,15 @@ navigator.mediaDevices
     socket.on('answer', ({ answer, target }) => {
       peerConnections[target]
         .setRemoteDescription(answer)
-        .catch((e) => console.log('Error handling answer:', e));
+        .catch((e) => console.log('*** Error handling answer:', e));
     });
 
-    socket.on('ice-candidate', ({ target, caller, candidateMessage }) => {
+    socket.on('ice-candidate', ({ caller, candidateMessage }) => {
       // Target is local user in this case
-      console.log('On ice-candidate/Target:', target);
-      console.log('On ice-candidate/Caller:', caller);
-      console.log('On ice-candidate/peers', peerConnections);
       const candidate = new RTCIceCandidate(candidateMessage);
       peerConnections[caller]
         .addIceCandidate(candidate.toJSON())
-        .catch((e) => console.log('Error adding ICE candidate', e));
+        .catch((e) => console.log('*** Error adding ICE candidate', e));
     });
   });
 
@@ -110,7 +107,7 @@ function startCall(target) {
       remoteVideos[target].srcObject = streams[0];
     };
   } catch (err) {
-    console.log('Error starting connection:', err);
+    console.log('*** Error starting connection:', err);
   }
 }
 
@@ -128,7 +125,6 @@ function startNegotiation(target) {
 }
 
 function handleIceCandidate(e, target, caller) {
-  console.log('Emitting ice-candidate/caller', caller);
   if (e.candidate) {
     socket.emit('ice-candidate', {
       target,
@@ -144,7 +140,7 @@ socket.on('other-users', (otherUsers) => {
 });
 
 socket.on('user disonnected', ({ userId }) => {
-  console.log(`User ${userId} disconnected`);
+  console.log(`*** User ${userId} disconnected`);
   peerConnections[userId].close();
   delete peerConnections[userId];
   remoteVideos[userId].srcObject = null;
