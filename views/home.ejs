@@ -7,17 +7,18 @@
     <title>Document</title>
   </head>
   <body>
-    <h1>Welcome to zoom's clone</h1>
-    <div class="form_wrapper">
-      <form action="/register_room" method="post">
+    <h1 class="mainTitle">Welcome to zoom's clone</h1>
+    <div class="formWrapper">
+      <form class="userForm" action="/register_room" method="post">
         <label for="name">Enter room's name: </label>
         <input
+          class="formInput"
           type="text"
           name="name"
           placeholder="Please enter room's name"
           required
         />
-        <input type="submit" value="Create" />
+        <input class="formSubmitButton" type="submit" value="Create" />
       </form>
     </div>
   </body>

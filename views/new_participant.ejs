@@ -3,23 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
     <title>Document</title>
   </head>
   <body>
-    <form action="/register_participant" method="post">
-      <div>
+    <h1 class="mainTitle">Welcome to zoom's clone</h1>
+    <div class="formWrapper">
+      <form class="userForm" action="/register_participant" method="post">
         <label for="name">Enter your username: </label>
         <input
+          class="formInput"
           type="text"
           name="name"
-          id="name"
           placeholder="Please enter your username"
           required
         />
-      </div>
-      <div>
-        <input type="submit" value="Create" />
-      </div>
-    </form>
+        <input class="formSubmitButton" type="submit" value="Create" />
+      </form>
+    </div>
   </body>
 </html>
