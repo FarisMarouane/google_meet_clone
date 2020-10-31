@@ -38,7 +38,13 @@ navigator.mediaDevices
     socket.emit('join-room', ROOM_ID);
 
     socket.on('offer', ({ caller, offer, target }) => {
-      peerConnections[caller] = new RTCPeerConnection(serverConfig);
+      try {
+        console.log('Starting a RTCPeerConnection with:', caller);
+        peerConnections[caller] = new RTCPeerConnection(serverConfig);
+      } catch (error) {
+        console.log('Error starting a RTCPeerConnection with caller:', caller);
+      }
+
       remoteVideos[caller] = createVideoElement();
       videoGridElement.appendChild(remoteVideos[caller]);
 
