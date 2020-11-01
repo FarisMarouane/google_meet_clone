@@ -12,7 +12,7 @@ app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 app.set('view engine', 'ejs');
-app.use(express.static('public'));
+app.use('/css', express.static('public/css'));
 
 app.get('/', (req, res) => {
   res.render('home');
@@ -31,7 +31,7 @@ app.get('/:roomId/new_participant', (req, res) => {
 });
 
 app.post('/register_participant', (req, res) => {
-  const participantName = req.body.name;
+  // const participantName = req.body.name;
   res.redirect(`/room/${uniqueRoomName}`);
 });
 
@@ -73,7 +73,6 @@ io.on('connection', (socket) => {
 
   socket.on('ice-candidate', ({ target, caller, candidate }) => {
     io.to(target).emit('ice-candidate', {
-      target,
       caller,
       candidateMessage: candidate,
     });
