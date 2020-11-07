@@ -2,14 +2,17 @@ const socket = io('/');
 
 function createVideoElement() {
   const remoteVideoElement = document.createElement('video');
+  remoteVideoElement.setAttribute('class', 'participantVideo');
   remoteVideoElement.setAttribute('autoplay', '');
   remoteVideoElement.setAttribute('playsinline', '');
 
   return remoteVideoElement;
 }
 
-const localVideoElement = document.getElementById('localVideo');
-const videoGridElement = document.getElementById('video-grid');
+const videoGridElement = document.getElementsByClassName('videoGrid')[0];
+const localVideoElement = videoGridElement.getElementsByClassName(
+  'participantVideo',
+)[0];
 
 let remoteVideos = {};
 let localSocketId;
