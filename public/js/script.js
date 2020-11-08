@@ -1,8 +1,9 @@
 const socket = io('/');
 
-function createVideoElement() {
+function createVideoElement(caller) {
   const remoteVideoElement = document.createElement('video');
   remoteVideoElement.setAttribute('class', 'participantVideo');
+  remoteVideoElement.setAttribute('id', caller);
   remoteVideoElement.setAttribute('autoplay', '');
   remoteVideoElement.setAttribute('playsinline', '');
 
@@ -37,6 +38,7 @@ navigator.mediaDevices
   .then((stream) => {
     localStream = stream;
     localVideoElement.srcObject = stream;
+    localVideoElement.setAttribute('id', `${socket.id}`);
 
     socket.emit('join-room', ROOM_ID);
 
@@ -48,7 +50,7 @@ navigator.mediaDevices
         console.log('Error starting a RTCPeerConnection with caller:', caller);
       }
 
-      remoteVideos[caller] = createVideoElement();
+      remoteVideos[caller] = createVideoElement(caller);
       videoGridElement.appendChild(remoteVideos[caller]);
 
       for (const track of localStream.getTracks()) {
@@ -100,7 +102,7 @@ navigator.mediaDevices
 function startCall(target) {
   console.log('*** Starting call to user:', target);
   peerConnections[target] = new RTCPeerConnection(serverConfig);
-  remoteVideos[target] = createVideoElement();
+  remoteVideos[target] = createVideoElement(target);
   videoGridElement.appendChild(remoteVideos[target]);
   try {
     for (const track of localStream.getTracks()) {
@@ -153,4 +155,5 @@ socket.on('user disonnected', ({ userId }) => {
   peerConnections[userId].close();
   delete peerConnections[userId];
   remoteVideos[userId].srcObject = null;
+  videoGridElement.removeChild(document.getElementById(userId))
 });
