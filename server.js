@@ -5,6 +5,11 @@ const io = require('socket.io')(server);
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 
+let port = process.env.PORT;
+if (port == null || port == "") {
+  port = 3000;
+}
+
 let uniqueRoomName;
 const rooms = {};
 
@@ -81,4 +86,4 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3000);
+server.listen(port);
