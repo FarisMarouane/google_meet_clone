@@ -13,9 +13,11 @@
   <script src="/js/script.js" defer></script>
   <link rel="stylesheet" href="/css/style.css" />
   <body>
-    <h3><%= roomId %></h3>
     <div class="videoGrid">
-      <video class="participantVideo" autoplay playsinline></video>
+      <div class="videoContainer">
+        <video class="participantVideo" autoplay playsinline></video>
+        <span class="micButton"></span>
+      </div>
     </div>
   </body>
 </html>

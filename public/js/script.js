@@ -1,16 +1,35 @@
 const socket = io('/');
 
+function muteCallParticipant (participantId) {
+  const callerVideo = document.querySelector(`#caller_${participantId} > .participantVideo`);
+  callerVideo.muted = !callerVideo.muted;
+}
+
 function createVideoElement(caller) {
+  const videoContainerElement = document.createElement('div');
+  videoContainerElement.setAttribute('class', 'videoContainer');
+  videoContainerElement.setAttribute('id', `caller_${caller}`);
+
+  const micButton = document.createElement('span');
+  micButton.setAttribute('class', 'micButton');
+  micButton.addEventListener('click', () => {
+    muteCallParticipant(caller);
+    micButton.classList.toggle('muted');
+  })
+
   const remoteVideoElement = document.createElement('video');
   remoteVideoElement.setAttribute('class', 'participantVideo');
-  remoteVideoElement.setAttribute('id', caller);
   remoteVideoElement.setAttribute('autoplay', '');
   remoteVideoElement.setAttribute('playsinline', '');
 
-  return remoteVideoElement;
+  videoContainerElement.appendChild(remoteVideoElement);
+  videoContainerElement.appendChild(micButton);
+
+  return { videoContainerElement, remoteVideoElement };
 }
 
 const videoGridElement = document.getElementsByClassName('videoGrid')[0];
+const localVideoContainer = videoGridElement.getElementsByClassName('videoContainer')[0];
 const localVideoElement = videoGridElement.getElementsByClassName(
   'participantVideo',
 )[0];
@@ -38,7 +57,13 @@ navigator.mediaDevices
   .then((stream) => {
     localStream = stream;
     localVideoElement.srcObject = stream;
-    localVideoElement.setAttribute('id', `${socket.id}`);
+    localVideoContainer.setAttribute('id', `caller_${socket.id}`);
+
+    const micButton = localVideoContainer.getElementsByClassName('micButton')[0];
+    micButton.addEventListener('click', () => {
+      muteCallParticipant(socket.id);
+      micButton.classList.toggle('muted');
+    })
 
     socket.emit('join-room', ROOM_ID);
 
@@ -49,9 +74,10 @@ navigator.mediaDevices
       } catch (error) {
         console.log('Error starting a RTCPeerConnection with caller:', caller);
       }
-
-      remoteVideos[caller] = createVideoElement(caller);
-      videoGridElement.appendChild(remoteVideos[caller]);
+      
+      const { videoContainerElement, remoteVideoElement } = createVideoElement(caller);
+      remoteVideos[caller] = remoteVideoElement;
+      videoGridElement.appendChild(videoContainerElement);
 
       for (const track of localStream.getTracks()) {
         peerConnections[caller].addTrack(track, localStream);
@@ -102,8 +128,9 @@ navigator.mediaDevices
 function startCall(target) {
   console.log('*** Starting call to user:', target);
   peerConnections[target] = new RTCPeerConnection(serverConfig);
-  remoteVideos[target] = createVideoElement(target);
-  videoGridElement.appendChild(remoteVideos[target]);
+  const { videoContainerElement, remoteVideoElement } = createVideoElement(target);
+  remoteVideos[target] = remoteVideoElement;
+  videoGridElement.appendChild(videoContainerElement);
   try {
     for (const track of localStream.getTracks()) {
       peerConnections[target].addTrack(track, localStream);
@@ -155,5 +182,5 @@ socket.on('user disonnected', ({ userId }) => {
   peerConnections[userId].close();
   delete peerConnections[userId];
   remoteVideos[userId].srcObject = null;
-  videoGridElement.removeChild(document.getElementById(userId))
+  videoGridElement.removeChild(document.getElementById(`caller_${userId}`))
 });

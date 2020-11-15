@@ -14,6 +14,7 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 app.set('view engine', 'ejs');
 app.use('/css', express.static('public/css'));
 app.use('/js', express.static('public/js'));
+app.use('/assets', express.static('public/assets'));
 
 app.get('/', (req, res) => {
   res.render('home');
