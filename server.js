@@ -5,13 +5,17 @@ const io = require('socket.io')(server);
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 
+const low = require('lowdb')
+const FileSync = require('lowdb/adapters/FileSync')
+const adapter = new  FileSync('db.json')
+const db = low(adapter)
+
+db.set('rooms', {}).write();
+
 let port = process.env.PORT;
 if (port == null || port == "") {
   port = 3000;
 }
-
-let uniqueRoomName;
-const rooms = {};
 
 app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
@@ -27,36 +31,43 @@ app.get('/', (req, res) => {
 
 app.post('/register_room', (req, res) => {
   const roomName = req.body.name;
-  uniqueRoomName = `${roomName}${uuidv4()}`;
-  rooms[uniqueRoomName] = [];
+  const uniqueRoomName = `${roomName}${uuidv4()}`;
+
+  db.set(`rooms[${uniqueRoomName}]`, {}).write();
 
   res.redirect(`/${uniqueRoomName}/new_participant`);
 });
 
 app.get('/:roomId/new_participant', (req, res) => {
-  res.render('new_participant');
+  res.render('new_participant', { roomId: req.params.roomId });
 });
 
-app.post('/register_participant', (req, res) => {
-  // const participantName = req.body.name;
-  res.redirect(`/room/${uniqueRoomName}`);
+app.post('/:roomId/register_participant', (req, res) => {
+  const participantName = req.body.name;
+  const roomId = req.params.roomId;
+
+  res.redirect(`/room/${roomId}`);
 });
 
 app.get('/room/:roomId', (req, res) => {
-  res.render('room', { roomId: req.params.roomId });
+  const userName = req.query.user;
+  res.render('room', { roomId: req.params.roomId, userName });
 });
 
 io.on('connection', (socket) => {
   let room_id;
-  socket.on('join-room', (roomId) => {
+  socket.on('join-room', (roomId, USE_ID) => {
     room_id = roomId;
+    const rooms = db.get('rooms').value();
+    console.log('rooms 1', rooms);
     if (rooms[roomId]) {
-      rooms[roomId].push(socket.id);
+      db.set(`rooms[${roomId}][${socket.id}]`, USE_ID).write();
     } else {
-      rooms[roomId] = [socket.id];
+      throw Error(`Room ${roomId} doesn't exist`);
     }
-    console.log(`${socket.id} joined`, rooms[roomId]);
-    const otherUsers = rooms[roomId]?.filter((id) => id !== socket.id);
+    console.log(`${socket.id} joined room`, roomId);
+    const otherUsers =  Object.keys(rooms[roomId])
+      ?.filter((id) => id !== socket.id);
     if (otherUsers?.length > 0) {
       socket.emit('other-users', otherUsers);
     }
@@ -72,6 +83,8 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     // Remove disconnected user from room
+    const rooms = db.get('rooms').value();
+    console.log('rooms', rooms);
     if (rooms[room_id]) {
       rooms[room_id] = rooms[room_id].filter((id) => id !== socket.id);
     }
